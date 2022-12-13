@@ -26,6 +26,17 @@
 #define AES_BLOCK_STORE(A, B)  _mm_storeu_si128((__m128i *) (void *) (A), (B))
 #define AES_BLOCK_STORE2(A, B) _mm256_storeu_si256((__m256i *) (void *) (A), (B))
 
+// Some permutations may be avoided by changing the
+// state representation to something like {(0,2),(4,6),(1,3),(5,7)}
+//
+// In the update function, the state would be permuted as follows:
+// {(0,2),(4,6),(1,3),(5,7)}
+// {(7,1),(3,5),(0,2),(4,6)}
+// Note that only two permutations become necessary.
+//
+// And the circuit before the update uses (even,odd) pairs, so
+// we could use blend instructions instead of permutations.
+
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
 {
@@ -115,8 +126,6 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
     __m256i t, t62, t15, t26, t37;
 
     msg = AES_BLOCK_LOAD2(src);
-    // Permutations may be replaced with blend instructions by changing the
-    // state representation to something like {(0,2),(1,3),(4,6),(5,7)}
     t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
     t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
     t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
