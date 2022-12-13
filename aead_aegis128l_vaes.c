@@ -32,7 +32,7 @@
 // In the update function, the state would be permuted as follows:
 // {(0,2),(4,6),(1,3),(5,7)}
 // {(7,1),(3,5),(0,2),(4,6)}
-// Note that only two permutations become necessary.
+// Note that no permutations and only two blends become necessary.
 //
 // And the circuit before the update uses (even,odd) pairs, so
 // we could use blend instructions instead of permutations.
