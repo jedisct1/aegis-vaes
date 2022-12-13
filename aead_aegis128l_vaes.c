@@ -115,6 +115,8 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
     __m256i t, t62, t15, t26, t37;
 
     msg = AES_BLOCK_LOAD2(src);
+    // Permutations may be replaced with blend instructions by changing the
+    // state representation to something like {(0,2),(1,3),(4,6),(5,7)}
     t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
     t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
     t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
