@@ -27,27 +27,27 @@
 #define AES_BLOCK_STORE2(A, B) _mm256_storeu_si256((__m256i *) (void *) (A), (B))
 
 static inline void
-aegis128l_update(__m256i *const state2, const __m256i d)
+aegis128l_update(__m256i *const state, const __m256i d)
 {
     const __m128i d1 = _mm256_extracti128_si256(d, 0);
     const __m128i d2 = _mm256_extracti128_si256(d, 1);
 
-    const __m256i t3 = _mm256_permute2x128_si256(state2[3], state2[2], 0x03);
-    const __m256i t2 = _mm256_permute2x128_si256(state2[2], state2[1], 0x03);
-    const __m256i t1 = _mm256_permute2x128_si256(state2[1], state2[0], 0x03);
-    const __m256i t0 = _mm256_permute2x128_si256(state2[0], state2[3], 0x03);
+    const __m256i t3 = _mm256_permute2x128_si256(state[3], state[2], 0x03);
+    const __m256i t2 = _mm256_permute2x128_si256(state[2], state[1], 0x03);
+    const __m256i t1 = _mm256_permute2x128_si256(state[1], state[0], 0x03);
+    const __m256i t0 = _mm256_permute2x128_si256(state[0], state[3], 0x03);
 
-    state2[3] = _mm256_aesenc_epi128(t3, state2[3]);
-    state2[2] = _mm256_aesenc_epi128(t2, state2[2]);
-    state2[1] = _mm256_aesenc_epi128(t1, state2[1]);
-    state2[0] = _mm256_aesenc_epi128(t0, state2[0]);
+    state[3] = _mm256_aesenc_epi128(t3, state[3]);
+    state[2] = _mm256_aesenc_epi128(t2, state[2]);
+    state[1] = _mm256_aesenc_epi128(t1, state[1]);
+    state[0] = _mm256_aesenc_epi128(t0, state[0]);
 
-    state2[2] = _mm256_xor_si256(state2[2], _mm256_zextsi128_si256(d2));
-    state2[0] = _mm256_xor_si256(state2[0], _mm256_zextsi128_si256(d1));
+    state[2] = _mm256_xor_si256(state[2], _mm256_zextsi128_si256(d2));
+    state[0] = _mm256_xor_si256(state[0], _mm256_zextsi128_si256(d1));
 }
 
 static void
-aegis128l_init(const unsigned char *key, const unsigned char *nonce, __m256i *const state2)
+aegis128l_init(const unsigned char *key, const unsigned char *nonce, __m256i *const state)
 {
     static CRYPTO_ALIGN(32)
         const uint8_t c0_[] = { 0xdb, 0x3d, 0x18, 0x55, 0x6d, 0xc2, 0x2f, 0xf1,
@@ -62,20 +62,20 @@ aegis128l_init(const unsigned char *key, const unsigned char *nonce, __m256i *co
     const __m128i     n  = AES_BLOCK_LOAD(nonce);
     int               i;
 
-    state2[0] = _mm256_set_m128i(c0, _mm_xor_si128(k, n));
-    state2[1] = _mm256_set_m128i(c0, c1);
-    state2[2] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, n));
-    state2[3] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, c0));
+    state[0] = _mm256_set_m128i(c0, _mm_xor_si128(k, n));
+    state[1] = _mm256_set_m128i(c0, c1);
+    state[2] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, n));
+    state[3] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, c0));
 
     d = _mm256_set_m128i(k, n);
     for (i = 0; i < 10; i++) {
-        aegis128l_update(state2, d);
+        aegis128l_update(state, d);
     }
 }
 
 static void
 aegis128l_mac(unsigned char *mac, unsigned long long adlen, unsigned long long mlen,
-              __m256i *const state2)
+              __m256i *const state)
 {
     __m256i d;
     __m256i tmp2;
@@ -83,17 +83,17 @@ aegis128l_mac(unsigned char *mac, unsigned long long adlen, unsigned long long m
     int     i;
 
     tmp = _mm_set_epi64x(mlen << 3, adlen << 3);
-    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state2[1], 0));
+    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state[1], 0));
     d   = _mm256_broadcastsi128_si256(tmp);
 
     for (i = 0; i < 7; i++) {
-        aegis128l_update(state2, d);
+        aegis128l_update(state, d);
     }
 
-    tmp2 = _mm256_xor_si256(state2[0], state2[1]);
+    tmp2 = _mm256_xor_si256(state[0], state[1]);
     tmp2 = _mm256_xor_si256(
         tmp2,
-        _mm256_xor_si256(state2[2], _mm256_inserti128_si256(state2[3], _mm_setzero_si128(), 1)));
+        _mm256_xor_si256(state[2], _mm256_inserti128_si256(state[3], _mm_setzero_si128(), 1)));
     tmp = _mm256_extracti128_si256(tmp2, 0);
     tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(tmp2, 1));
 
@@ -101,47 +101,47 @@ aegis128l_mac(unsigned char *mac, unsigned long long adlen, unsigned long long m
 }
 
 static inline void
-aegis128l_absorb(const unsigned char *const src, __m256i *const state2)
+aegis128l_absorb(const unsigned char *const src, __m256i *const state)
 {
     const __m256i msg = AES_BLOCK_LOAD2(src);
 
-    aegis128l_update(state2, msg);
+    aegis128l_update(state, msg);
 }
 
 static inline void
-aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i *const state2)
+aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i *const state)
 {
     __m256i msg;
     __m256i t, t62, t15, t26, t37;
 
     msg = AES_BLOCK_LOAD2(src);
-    t62 = _mm256_permute2x128_si256(state2[1], state2[3], 0x02);
-    t15 = _mm256_permute2x128_si256(state2[2], state2[0], 0x13);
-    t26 = _mm256_permute2x128_si256(state2[3], state2[1], 0x02);
-    t37 = _mm256_permute2x128_si256(state2[3], state2[1], 0x13);
+    t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
+    t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
+    t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
+    t37 = _mm256_permute2x128_si256(state[3], state[1], 0x13);
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), msg));
     AES_BLOCK_STORE2(dst, t);
 
-    aegis128l_update(state2, msg);
+    aegis128l_update(state, msg);
 }
 
 static inline void
-aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i *const state2)
+aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i *const state)
 {
     __m256i ct;
     __m256i t, t62, t15, t26, t37;
 
     ct  = AES_BLOCK_LOAD2(src);
-    t62 = _mm256_permute2x128_si256(state2[1], state2[3], 0x02);
-    t15 = _mm256_permute2x128_si256(state2[2], state2[0], 0x13);
-    t26 = _mm256_permute2x128_si256(state2[3], state2[1], 0x02);
-    t37 = _mm256_permute2x128_si256(state2[3], state2[1], 0x13);
+    t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
+    t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
+    t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
+    t37 = _mm256_permute2x128_si256(state[3], state[1], 0x13);
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), ct));
     AES_BLOCK_STORE2(dst, t);
 
-    aegis128l_update(state2, t);
+    aegis128l_update(state, t);
 }
 
 int
@@ -151,33 +151,33 @@ crypto_aead_aegis128l_encrypt_detached(unsigned char *c, unsigned char *mac,
                                        unsigned long long adlen, const unsigned char *nsec,
                                        const unsigned char *npub, const unsigned char *k)
 {
-    __m256i                        state2[4];
+    __m256i                        state[4];
     CRYPTO_ALIGN(32) unsigned char src[32];
     CRYPTO_ALIGN(32) unsigned char dst[32];
     unsigned long long             i;
 
     (void) nsec;
-    aegis128l_init(k, npub, state2);
+    aegis128l_init(k, npub, state);
 
     for (i = 0ULL; i + 32ULL <= adlen; i += 32ULL) {
-        aegis128l_absorb(ad + i, state2);
+        aegis128l_absorb(ad + i, state);
     }
     if (adlen & 0x1f) {
         memset(src, 0, 32);
         memcpy(src, ad + i, adlen & 0x1f);
-        aegis128l_absorb(src, state2);
+        aegis128l_absorb(src, state);
     }
     for (i = 0ULL; i + 32ULL <= mlen; i += 32ULL) {
-        aegis128l_enc(c + i, m + i, state2);
+        aegis128l_enc(c + i, m + i, state);
     }
     if (mlen & 0x1f) {
         memset(src, 0, 32);
         memcpy(src, m + i, mlen & 0x1f);
-        aegis128l_enc(dst, src, state2);
+        aegis128l_enc(dst, src, state);
         memcpy(c + i, dst, mlen & 0x1f);
     }
 
-    aegis128l_mac(mac, adlen, mlen, state2);
+    aegis128l_mac(mac, adlen, mlen, state);
 
     if (maclen_p != NULL) {
         *maclen_p = 16ULL;
@@ -192,7 +192,7 @@ crypto_aead_aegis128l_decrypt_detached(unsigned char *m, unsigned char *nsec,
                                        unsigned long long adlen, const unsigned char *npub,
                                        const unsigned char *k)
 {
-    __m256i                        state2[4];
+    __m256i                        state[4];
     CRYPTO_ALIGN(32) unsigned char src[32];
     CRYPTO_ALIGN(32) unsigned char dst[32];
     CRYPTO_ALIGN(32) unsigned char computed_mac[16];
@@ -203,23 +203,23 @@ crypto_aead_aegis128l_decrypt_detached(unsigned char *m, unsigned char *nsec,
 
     (void) nsec;
     mlen = clen;
-    aegis128l_init(k, npub, state2);
+    aegis128l_init(k, npub, state);
 
     for (i = 0ULL; i + 32ULL <= adlen; i += 32ULL) {
-        aegis128l_absorb(ad + i, state2);
+        aegis128l_absorb(ad + i, state);
     }
     if (adlen & 0x1f) {
         memset(src, 0, 32);
         memcpy(src, ad + i, adlen & 0x1f);
-        aegis128l_absorb(src, state2);
+        aegis128l_absorb(src, state);
     }
     if (m != NULL) {
         for (i = 0ULL; i + 32ULL <= mlen; i += 32ULL) {
-            aegis128l_dec(m + i, c + i, state2);
+            aegis128l_dec(m + i, c + i, state);
         }
     } else {
         for (i = 0ULL; i + 32ULL <= mlen; i += 32ULL) {
-            aegis128l_dec(dst, c + i, state2);
+            aegis128l_dec(dst, c + i, state);
         }
     }
     if (mlen & 0x1f) {
@@ -227,20 +227,20 @@ crypto_aead_aegis128l_decrypt_detached(unsigned char *m, unsigned char *nsec,
 
         memset(src, 0, 32);
         memcpy(src, c + i, mlen & 0x1f);
-        aegis128l_dec(dst, src, state2);
+        aegis128l_dec(dst, src, state);
         if (m != NULL) {
             memcpy(m + i, dst, mlen & 0x1f);
         }
         memset(dst, 0, mlen & 0x1f);
 
         t = AES_BLOCK_LOAD2(dst);
-        state2[0] =
-            _mm256_xor_si256(state2[0], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 0)));
-        state2[2] =
-            _mm256_xor_si256(state2[2], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 1)));
+        state[0] =
+            _mm256_xor_si256(state[0], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 0)));
+        state[2] =
+            _mm256_xor_si256(state[2], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 1)));
     }
 
-    aegis128l_mac(computed_mac, adlen, mlen, state2);
+    aegis128l_mac(computed_mac, adlen, mlen, state);
 
     v   = _mm_cmpeq_epi64(AES_BLOCK_LOAD(computed_mac), AES_BLOCK_LOAD(mac));
     ret = ((int) (_mm_extract_epi64(v, 0) & _mm_extract_epi64(v, 1) & 1)) - 1;
