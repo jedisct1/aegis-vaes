@@ -35,6 +35,12 @@
 // We then only need two blend+permute in the update function.
 //
 // However, the circuit before the update remains an issue.
+// 
+// An alternative may be:
+// {(6,2),(1,5),(3,7),(4,0)}
+// 
+// This requires 3 permutations in the update function, but
+// the (6,2)->(2,6) one can be reused.
 
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
