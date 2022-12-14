@@ -32,10 +32,9 @@
 // In the update function, the state would be permuted as follows:
 // {(0,2),(4,6),(1,3),(5,7)}
 // {(7,1),(3,5),(0,2),(4,6)}
-// Note that no permutations and only two blends become necessary.
+// We then only need two blend+permute in the update function.
 //
-// And the circuit before the update uses (even,odd) pairs, so
-// we could use blend instructions instead of permutations.
+// However, the circuit before the update remains an issue.
 
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
