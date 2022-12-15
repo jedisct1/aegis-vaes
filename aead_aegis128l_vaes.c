@@ -26,7 +26,7 @@
 #define AES_BLOCK_STORE(A, B)  _mm_storeu_si128((__m128i *) (void *) (A), (B))
 #define AES_BLOCK_STORE2(A, B) _mm256_storeu_si256((__m256i *) (void *) (A), (B))
 
-// The state is represented with the words mapped as follows:
+// The state is represented with the 128-bit words mapped to 256-bit registers as follows:
 // { (6,2), (1,5), (3,7), (0,4) }
 // This avoids a couple permutations.
 
