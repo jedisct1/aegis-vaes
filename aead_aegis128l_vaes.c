@@ -26,40 +26,24 @@
 #define AES_BLOCK_STORE(A, B)  _mm_storeu_si128((__m128i *) (void *) (A), (B))
 #define AES_BLOCK_STORE2(A, B) _mm256_storeu_si256((__m256i *) (void *) (A), (B))
 
-// Some permutations may be avoided by changing the
-// state representation to something like {(0,2),(4,6),(1,3),(5,7)}
-//
-// In the update function, the state would be permuted as follows:
-// {(0,2),(4,6),(1,3),(5,7)}
-// {(7,1),(3,5),(0,2),(4,6)}
-// We then only need two blend+permute in the update function.
-//
-// However, the circuit before the update remains an issue.
-// 
-// An alternative may be:
-// {(6,2),(1,5),(3,7),(4,0)}
-// 
-// This requires 3 permutations in the update function, but
-// the (6,2)->(2,6) one can be reused.
+// The state is represented with the words mapped as follows:
+// (6,2)(1,5)(3,7)(0,4)
+// This avoids a couple permutations.
 
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
 {
-    const __m128i d1 = _mm256_extracti128_si256(d, 0);
-    const __m128i d2 = _mm256_extracti128_si256(d, 1);
-
-    const __m256i t3 = _mm256_permute2x128_si256(state[3], state[2], 0x03);
-    const __m256i t2 = _mm256_permute2x128_si256(state[2], state[1], 0x03);
-    const __m256i t1 = _mm256_permute2x128_si256(state[1], state[0], 0x03);
-    const __m256i t0 = _mm256_permute2x128_si256(state[0], state[3], 0x03);
+    const __m256i t0 = _mm256_permute2x128_si256(state[1], state[1], 0x03);
+    const __m256i t1 = state[3];
+    const __m256i t2 = _mm256_permute2x128_si256(state[0], state[0], 0x03);
+    const __m256i t3 = _mm256_permute2x128_si256(state[2], state[2], 0x03);
 
     state[3] = _mm256_aesenc_epi128(t3, state[3]);
     state[2] = _mm256_aesenc_epi128(t2, state[2]);
     state[1] = _mm256_aesenc_epi128(t1, state[1]);
     state[0] = _mm256_aesenc_epi128(t0, state[0]);
 
-    state[2] = _mm256_xor_si256(state[2], _mm256_zextsi128_si256(d2));
-    state[0] = _mm256_xor_si256(state[0], _mm256_zextsi128_si256(d1));
+    state[3] = _mm256_xor_si256(state[3], d);
 }
 
 static void
@@ -78,10 +62,10 @@ aegis128l_init(const unsigned char *key, const unsigned char *nonce, __m256i *co
     const __m128i     n  = AES_BLOCK_LOAD(nonce);
     int               i;
 
-    state[0] = _mm256_set_m128i(c0, _mm_xor_si128(k, n));
-    state[1] = _mm256_set_m128i(c0, c1);
-    state[2] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, n));
-    state[3] = _mm256_set_m128i(_mm_xor_si128(k, c1), _mm_xor_si128(k, c0));
+    state[0] = _mm256_set_m128i(c1, _mm_xor_si128(k, c0));
+    state[1] = _mm256_set_m128i(_mm_xor_si128(k, c1), c0);
+    state[2] = state[1];
+    state[3] = _mm256_broadcastsi128_si256(_mm_xor_si128(k, n));
 
     d = _mm256_set_m128i(k, n);
     for (i = 0; i < 10; i++) {
@@ -99,19 +83,16 @@ aegis128l_mac(unsigned char *mac, unsigned long long adlen, unsigned long long m
     int     i;
 
     tmp = _mm_set_epi64x(mlen << 3, adlen << 3);
-    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state[1], 0));
+    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state[0], 1));
     d   = _mm256_broadcastsi128_si256(tmp);
 
     for (i = 0; i < 7; i++) {
         aegis128l_update(state, d);
     }
-
     tmp2 = _mm256_xor_si256(state[0], state[1]);
-    tmp2 = _mm256_xor_si256(
-        tmp2,
-        _mm256_xor_si256(state[2], _mm256_inserti128_si256(state[3], _mm_setzero_si128(), 1)));
-    tmp = _mm256_extracti128_si256(tmp2, 0);
-    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(tmp2, 1));
+    tmp2 = _mm256_xor_si256(tmp2, state[3]);
+    tmp = _mm_xor_si128(_mm256_extracti128_si256(tmp2, 0), _mm256_extracti128_si256(tmp2, 1));
+    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state[2], 0));
 
     AES_BLOCK_STORE(mac, tmp);
 }
@@ -131,10 +112,10 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
     __m256i t, t62, t15, t26, t37;
 
     msg = AES_BLOCK_LOAD2(src);
-    t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
-    t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
-    t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
-    t37 = _mm256_permute2x128_si256(state[3], state[1], 0x13);
+    t62 = state[0];
+    t15 = state[1];
+    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
+    t37 = state[2];
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), msg));
     AES_BLOCK_STORE2(dst, t);
@@ -149,10 +130,10 @@ aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i 
     __m256i t, t62, t15, t26, t37;
 
     ct  = AES_BLOCK_LOAD2(src);
-    t62 = _mm256_permute2x128_si256(state[1], state[3], 0x02);
-    t15 = _mm256_permute2x128_si256(state[2], state[0], 0x13);
-    t26 = _mm256_permute2x128_si256(state[3], state[1], 0x02);
-    t37 = _mm256_permute2x128_si256(state[3], state[1], 0x13);
+    t62 = state[0];
+    t15 = state[1];
+    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
+    t37 = state[2];
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), ct));
     AES_BLOCK_STORE2(dst, t);
@@ -250,10 +231,7 @@ crypto_aead_aegis128l_decrypt_detached(unsigned char *m, unsigned char *nsec,
         memset(dst, 0, mlen & 0x1f);
 
         t = AES_BLOCK_LOAD2(dst);
-        state[0] =
-            _mm256_xor_si256(state[0], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 0)));
-        state[2] =
-            _mm256_xor_si256(state[2], _mm256_zextsi128_si256(_mm256_extracti128_si256(t, 1)));
+        state[3] = _mm256_xor_si256(state[3], t);
     }
 
     aegis128l_mac(computed_mac, adlen, mlen, state);
