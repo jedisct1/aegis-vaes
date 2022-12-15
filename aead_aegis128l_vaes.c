@@ -110,22 +110,21 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
 {
     __m256i msg;
     __m256i t, t62, t15, t26, t37;
-    __m256i t51, t73, t04;
+    __m256i t51, t73;
 
     msg = AES_BLOCK_LOAD2(src);
     t62 = state[0];
     t15 = state[1];
-    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
     t37 = state[2];
+    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
+    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
+    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
+
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), msg));
     AES_BLOCK_STORE2(dst, t);
 
-    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
-    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
-    t04 = state[3];
-
-    state[1] = _mm256_aesenc_epi128(t04, state[1]);
+    state[1] = _mm256_aesenc_epi128(state[3], state[1]);
     state[0] = _mm256_aesenc_epi128(t51, state[0]);
     state[2] = _mm256_aesenc_epi128(t26, state[2]);
     state[3] = _mm256_aesenc_epi128(t73, state[3]);
@@ -138,22 +137,21 @@ aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i 
 {
     __m256i ct;
     __m256i t, t62, t15, t26, t37;
-    __m256i t51, t73, t04;
+    __m256i t51, t73;
 
     ct  = AES_BLOCK_LOAD2(src);
     t62 = state[0];
     t15 = state[1];
-    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
     t37 = state[2];
+    t26 = _mm256_permute2x128_si256(t62, t62, 0x03);
+    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
+    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
+
     t   = _mm256_xor_si256(t62, t15);
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), ct));
     AES_BLOCK_STORE2(dst, t);
 
-    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
-    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
-    t04 = state[3];
-
-    state[1] = _mm256_aesenc_epi128(t04, state[1]);
+    state[1] = _mm256_aesenc_epi128(state[3], state[1]);
     state[0] = _mm256_aesenc_epi128(t51, state[0]);
     state[2] = _mm256_aesenc_epi128(t26, state[2]);
     state[3] = _mm256_aesenc_epi128(t73, state[3]);
