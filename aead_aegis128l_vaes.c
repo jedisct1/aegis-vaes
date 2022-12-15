@@ -91,8 +91,8 @@ aegis128l_mac(unsigned char *mac, unsigned long long adlen, unsigned long long m
     }
     tmp2 = _mm256_xor_si256(state[0], state[1]);
     tmp2 = _mm256_xor_si256(tmp2, state[3]);
-    tmp = _mm_xor_si128(_mm256_extracti128_si256(tmp2, 0), _mm256_extracti128_si256(tmp2, 1));
-    tmp = _mm_xor_si128(tmp, _mm256_extracti128_si256(state[2], 0));
+    tmp = _mm_xor_si128(_mm256_castsi256_si128(tmp2), _mm256_extracti128_si256(tmp2, 1));
+    tmp = _mm_xor_si128(tmp, _mm256_castsi256_si128(state[2]));
 
     AES_BLOCK_STORE(mac, tmp);
 }
