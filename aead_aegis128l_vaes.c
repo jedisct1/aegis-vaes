@@ -28,7 +28,7 @@
 
 // The state is represented with the 128-bit words mapped to 256-bit registers as follows:
 // { (6,2), (1,5), (3,7), (0,4) }
-// This avoids a couple permutations.
+// This avoids a couple permutations. _mm256_permute2x128_si256() unfortunately has a latency of 3 cycles.
 
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
