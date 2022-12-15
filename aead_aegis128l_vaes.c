@@ -34,7 +34,7 @@ static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
 {
     const __m256i t51 = _mm256_permute2x128_si256(state[1], state[1], 0x03);
-    const __m256i t26 = _mm256_permute2x128_si256(state[0], state[0], 0x03); // unnecessary in enc() and dec()
+    const __m256i t26 = _mm256_permute2x128_si256(state[0], state[0], 0x03);
     const __m256i t73 = _mm256_permute2x128_si256(state[2], state[2], 0x03);
     const __m256i t04 = state[3];
 
