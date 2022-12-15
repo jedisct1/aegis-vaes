@@ -34,7 +34,7 @@ static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
 {
     const __m256i t51 = _mm256_permute2x128_si256(state[1], state[1], 0x03);
-    const __m256i t26 = _mm256_permute2x128_si256(state[0], state[0], 0x03); // optimized out by the compiler after inlining, as it's already computed in enc() and dec()
+    const __m256i t26 = _mm256_permute2x128_si256(state[0], state[0], 0x03); // unnecessary in enc() and dec()
     const __m256i t73 = _mm256_permute2x128_si256(state[2], state[2], 0x03);
     const __m256i t04 = state[3];
 
@@ -110,6 +110,7 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
 {
     __m256i msg;
     __m256i t, t62, t15, t26, t37;
+    __m256i t51, t73, t04;
 
     msg = AES_BLOCK_LOAD2(src);
     t62 = state[0];
@@ -120,7 +121,16 @@ aegis128l_enc(unsigned char *const dst, const unsigned char *const src, __m256i 
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), msg));
     AES_BLOCK_STORE2(dst, t);
 
-    aegis128l_update(state, msg);
+    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
+    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
+    t04 = state[3];
+
+    state[1] = _mm256_aesenc_epi128(t04, state[1]);
+    state[0] = _mm256_aesenc_epi128(t51, state[0]);
+    state[2] = _mm256_aesenc_epi128(t26, state[2]);
+    state[3] = _mm256_aesenc_epi128(t73, state[3]);
+
+    state[3] = _mm256_xor_si256(state[3], msg);
 }
 
 static inline void
@@ -128,6 +138,7 @@ aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i 
 {
     __m256i ct;
     __m256i t, t62, t15, t26, t37;
+    __m256i t51, t73, t04;
 
     ct  = AES_BLOCK_LOAD2(src);
     t62 = state[0];
@@ -138,7 +149,16 @@ aegis128l_dec(unsigned char *const dst, const unsigned char *const src, __m256i 
     t   = _mm256_xor_si256(t, _mm256_xor_si256(_mm256_and_si256(t26, t37), ct));
     AES_BLOCK_STORE2(dst, t);
 
-    aegis128l_update(state, t);
+    t51 = _mm256_permute2x128_si256(t15, t15, 0x03);
+    t73 = _mm256_permute2x128_si256(t37, t37, 0x03);
+    t04 = state[3];
+
+    state[1] = _mm256_aesenc_epi128(t04, state[1]);
+    state[0] = _mm256_aesenc_epi128(t51, state[0]);
+    state[2] = _mm256_aesenc_epi128(t26, state[2]);
+    state[3] = _mm256_aesenc_epi128(t73, state[3]);
+
+    state[3] = _mm256_xor_si256(state[3], t);
 }
 
 int
