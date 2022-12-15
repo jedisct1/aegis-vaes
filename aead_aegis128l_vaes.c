@@ -27,21 +27,21 @@
 #define AES_BLOCK_STORE2(A, B) _mm256_storeu_si256((__m256i *) (void *) (A), (B))
 
 // The state is represented with the words mapped as follows:
-// (6,2)(1,5)(3,7)(0,4)
+// { (6,2), (1,5), (3,7), (0,4) }
 // This avoids a couple permutations.
 
 static inline void
 aegis128l_update(__m256i *const state, const __m256i d)
 {
-    const __m256i t0 = _mm256_permute2x128_si256(state[1], state[1], 0x03);
-    const __m256i t1 = state[3];
-    const __m256i t2 = _mm256_permute2x128_si256(state[0], state[0], 0x03);
-    const __m256i t3 = _mm256_permute2x128_si256(state[2], state[2], 0x03);
+    const __m256i t51 = _mm256_permute2x128_si256(state[1], state[1], 0x03);
+    const __m256i t04 = state[3];
+    const __m256i t26 = _mm256_permute2x128_si256(state[0], state[0], 0x03); // could be manually optimized out if the compiler doesn't notice that it was already computed in enc() and dec()
+    const __m256i t73 = _mm256_permute2x128_si256(state[2], state[2], 0x03);
 
-    state[3] = _mm256_aesenc_epi128(t3, state[3]);
-    state[2] = _mm256_aesenc_epi128(t2, state[2]);
-    state[1] = _mm256_aesenc_epi128(t1, state[1]);
-    state[0] = _mm256_aesenc_epi128(t0, state[0]);
+    state[3] = _mm256_aesenc_epi128(t73, state[3]);
+    state[2] = _mm256_aesenc_epi128(t26, state[2]);
+    state[1] = _mm256_aesenc_epi128(t04, state[1]);
+    state[0] = _mm256_aesenc_epi128(t51, state[0]);
 
     state[3] = _mm256_xor_si256(state[3], d);
 }
